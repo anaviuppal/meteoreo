@@ -12,9 +12,9 @@ def mcd_to_SQM(mcd):
 def _light_pollution(observer):
     """Returns light pollution data from lightpollutionmap.info."""
 
-    longitude = observer.lon
-    latitude = observer.lat
-    key = "fO7PlrdDnJuE7vTN" # if I put this on github, is there still a way to keep this key private?
+    longitude = np.degrees(observer.lon)
+    latitude = np.degrees(observer.lat)
+    key = "fO7PlrdDnJuE7vTN" 
     url = "https://www.lightpollutionmap.info/QueryRaster/?ql=wa_2015&qt=point&qd=" + str(longitude) + "," + str(latitude) + "&key=" + key
     response = requests.get(url)
 
@@ -45,8 +45,28 @@ def _sky_brightness(observer):
     # Subtract the sun's contribution to the sky brightness
 
     # Return the sky brightness magnitude
-    return sky_brightness_mag
+    #return sky_brightness_mag
 
+def _astronomical_twilight(observer):
+    """Checks if the observer has selected a time that is after astronomical twilight."""
+
+    sun = ephem.Sun(observer)
+    #print("Sun altitude: " + str(np.degrees(sun.alt)))
+    if np.degrees(sun.alt) <= -18:
+        return True
+    else:
+        return False
+    
+def _moon_sky_brightness(observer):
+    """Calculates the additional sky brightness from the moon phase."""
+
+    # Getting moon to sky brightnesses, and subtracting the base sky brightness of 22 mags/sq arcsec
+
+    # Checking the brightness at the observer's location
+
+
+
+#  Functions for use in future code updates
 def _object_extinction(observer, object):
     """Calculates the extinction of an object's light due to the thickness of the atmosphere."""
 
@@ -69,6 +89,39 @@ def _object_extinction(observer, object):
     else:
         return 0
     
+def sqm_to_bortle_to_limiting_mag(sqm):
+    """Converts mags per square arcsecond into Bortle class, and returns the corresponding limiting magnitude."""
+
+    if sqm >= 21.75:
+        return 7.6
+    elif sqm >= 21.6:
+        return 7.1
+    elif sqm >= 21.45:
+        return 6.6
+    elif sqm >= 20.55:
+        return 6.1
+    elif sqm >= 19.25:
+        return 5.6
+    elif sqm >= 18.5:
+        return 5.1
+    elif sqm >= 18.00:
+        return 4.6
+    else: # this is both classes 8 and 9
+        return 4
+    
 def limiting_magnitude(observer):
     """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond and then
     converting to the Bortle scale."""
+
+    # I am simplifying this to just the Sun for now, so that I can test the code
+    if _astronomical_twilight(observer):
+        # get light pollution brightness
+        light_pollution_mag = _light_pollution(observer)
+        # add moon brightness
+
+        # convert brightness to limiting magnitude
+        limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
+        return limiting_mag
+    # astronomical twilight is not currently occurring, so no meteors are visible
+    else:
+        return False
