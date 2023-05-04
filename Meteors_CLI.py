@@ -6,7 +6,7 @@ class Meteors_CLI():
     """Creates a command-line interface for the meteor prediction program."""
 
     def __init__(self):
-        self.Meteors = Meteors(self._set_observer)
+        self.Meteors = Meteors(self._set_observer())
 
     def _set_observer(self):
         """Sets the observer's time, date, latitude, longitude, and altitude."""
@@ -32,10 +32,11 @@ class Meteors_CLI():
         print("Fill out the altitude of your observing location, in meters: ")
         observer.elevation = int(input("Altitude: "))
 
-        self.Meteors = Meteors(observer)
+        return observer
 
     def run(self):
-        self.Meteors.run()
+        num_meteors_visible = self.Meteors.run()
+        print(num_meteors_visible)
 
 if __name__ == "__main__":
     CLI = Meteors_CLI()

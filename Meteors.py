@@ -4,11 +4,11 @@ import ephem
 from datetime import datetime
 from SkyBrightnessAndLightPollution import limiting_magnitude
 
-class Sky():
+class Meteors():
     """Holds the ephemeral data for all meteor sources. Holds an observer object."""
 
-    def __init__(self):
-        self.observer = self._set_observer()
+    def __init__(self, observer):
+        self.observer = observer
         self.shower_csv = pd.read_csv('ShowerData.csv')
         self.shower_csv.index = np.array(self.shower_csv["Code"], dtype=str)
         self._initialize_meteors()
@@ -144,8 +144,4 @@ class Sky():
         """Starts the meteor prediction program."""
 
         num_meteors_visible = self._ZHR_local()
-        print(num_meteors_visible)
-
-if __name__ == "__main__":
-    sky = Sky()
-    sky.run()
+        return num_meteors_visible

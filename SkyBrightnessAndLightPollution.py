@@ -21,6 +21,7 @@ def _light_pollution(observer):
     # Check if the response was successful
     if response.status_code == 200:
         # Print the response content
+        print(url)
         artificial_brightness = response.json()
         base_brightness = 0.171168465 # mcd/m2
         total_brightness = base_brightness + artificial_brightness # in mcd/m2
