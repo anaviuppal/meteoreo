@@ -1,18 +1,24 @@
 import numpy as np
 import pandas as pd
 import ephem
-from datetime import datetime
-from SkyBrightnessAndLightPollution import limiting_magnitude
+from datetime import datetime, timedelta
+import streamlit as st
+import matplotlib.pyplot as plt
+from SkyBrightnessAndLightPollution import limiting_magnitude, astronomical_twilight
 
 class Meteors():
     """Holds the ephemeral data for all meteor sources. Holds an observer object."""
 
     def __init__(self, observer):
+        """Initializes the observer and sets up the meteor shower data."""
+
         self.observer = observer
         self.shower_csv = pd.read_csv('ShowerData.csv')
         self.shower_csv.index = np.array(self.shower_csv["Code"], dtype=str)
         self._initialize_meteors()
         self._initialize_meteor_periods()
+        # this limiting mag will only be used for the 7-day prediction, so that the API isn't re-queried
+        self._limiting_mag = None
 
     def _solar_lon_to_day(self, solar_lon):
         """Converts solar longitude to the day number."""
@@ -21,6 +27,7 @@ class Meteors():
         day_num = (solar_lon / 360) * tropical_year
         return day_num
     
+    # this is a simplified version of solar longitude that ignores the ellipticity of Earth's orbit
     def _day_to_solar_lon(self, day_num):
         """Converts day number to solar longitude."""
 
@@ -29,9 +36,8 @@ class Meteors():
         return solar_lon
 
     def _initialize_meteors(self):
-        """Sets up the meteor shower radiants."""
+        """Sets up the meteor shower radiants with ephem."""
 
-        # accesses local variables so that I can create new ones with string names
         ephem_list = []
         for index, shower in self.shower_csv.iterrows():
             ephem_radiant = ephem.FixedBody()
@@ -41,6 +47,8 @@ class Meteors():
         self.shower_csv["Ephem"] = ephem_list
     
     def _gaussian(self, height, mean, stddev):
+        """Returns a callable gaussian function with the specified height, mean, and standard deviation."""
+
         def gaussian(x):
             return height * np.exp(-1 * ((x - mean)**2) / (2 * stddev**2))
         return gaussian
@@ -58,42 +66,128 @@ class Meteors():
             showers_periods.append(gaussian)
         self.shower_csv["Gaussian"] = showers_periods
 
-    def _ZHR_local(self):
+    def _meteor_number_info(self, limiting_mag, active_shower_codes):
+        """Provides info to an observer on light pollution and active meteor showers."""
+
+        if limiting_mag >= 7.6:
+            bortle_class = 1
+        elif limiting_mag >= 7.1:
+            bortle_class = 2
+        elif limiting_mag >= 6.6:
+            bortle_class = 3
+        elif limiting_mag >= 6.3:
+            bortle_class = 4
+        elif limiting_mag >= 5.6:
+            bortle_class = 5
+        elif limiting_mag >= 5.1:
+            bortle_class = 6
+        elif limiting_mag >= 4.6:
+            bortle_class = 7
+        elif limiting_mag <= 4:
+            bortle_class = "8 or 9"
+
+        if len(active_shower_codes) == 0:
+            active_showers = "There are no active meteor showers on your selected date."
+        else:
+            active_showers = "The active meteor showers on your selected date are: "
+            for index, shower_code in enumerate(active_shower_codes):
+                if index+1 != len(active_shower_codes):
+                    active_showers += str(self.shower_csv.at[shower_code, "Shower"])
+                    active_showers += ", "
+                else:
+                    active_showers += " and "
+                    active_showers += str(self.shower_csv.at[shower_code, "Shower"])
+                    active_showers += "."
+
+        return active_showers, bortle_class
+
+    def _ZHR_local(self, return_meteor_info=False):
         """Calculates local ZHR for all meteor sources combined."""
 
         limiting_mag = limiting_magnitude(self.observer)
-        #print("Limiting mag: " + str(limiting_mag))
         # the ZHR_local equation is only defined for limiting magnitudes 6.5 and brighter.
-        if limiting_mag == False:
-            return 0
-        elif limiting_mag > 6.5:
+        if limiting_mag > 6.5:
             limiting_mag = 6.5
+        self._limiting_mag = limiting_mag
+        # if not astronomical twilight, the limiting mag should be ignored
+        if not astronomical_twilight(self.observer):
+            limiting_mag = 0
 
         sun = ephem.Sun()
         sun.compute(self.observer)
         solar_longitude = np.degrees(sun.ra)
         total_visible_meteors = 0
+        active_shower_codes = []
         for index, shower in self.shower_csv.iterrows():
             meteor_function = shower["Gaussian"]
             num_meteors = meteor_function(solar_longitude)
-            #print("Num_meteors: " + str(num_meteors))
+            if round(num_meteors, 0) > 0:
+                active_shower_codes.append(shower["Code"])
             shower["Ephem"].compute(self.observer)
             shower_alt = shower["Ephem"].alt  # this is in radians
-            #print("Shower altitude: "+ str(shower_alt))
             if shower_alt > 0:
                 ZHR_local = num_meteors * (np.sin(shower_alt)) / (shower["r"] ** (6.5 - limiting_mag))
             else:
                 ZHR_local = 0
-            #print("ZHR local: " + str(ZHR_local))
             total_visible_meteors += ZHR_local
         sporadics = self._max_sporadic_meteors()
-        #print("Sporadics: " + str(sporadics))
-        # r = 3 for anthelion meteors, and assuming radiant is the zenith (sporadics have no true radiant)
+        # r = 3 for anthelion meteors, and we assume the radiant is the zenith (since sporadics have no true radiant)
         visible_sporadics = sporadics * (np.sin(90)) / (3 ** (6.5 - limiting_mag))
-        #print("Visible sporadics: " + str(visible_sporadics))
         total_visible_meteors += visible_sporadics
 
-        return total_visible_meteors
+        if return_meteor_info == True:
+            active_showers, bortle_class = self._meteor_number_info(limiting_mag, active_shower_codes)
+            return total_visible_meteors, active_showers, bortle_class
+        else:
+            return total_visible_meteors
+    
+    def seven_day_prediction(self):
+        """Returns a graph of the 7-day local meteor ZHR values."""
+
+        current_datetime = self.observer.date.datetime()
+        num_meteors_visible = []
+        solar_altitude = []
+        hours = np.arange(0, 3*24, 0.25)
+        times = []
+        for hour_number in hours:
+            test_observer = self.observer
+            new_date = current_datetime + timedelta(hours=hour_number)
+            times.append(new_date)
+            test_observer.date = new_date
+            
+            sun = ephem.Sun()
+            sun.compute(test_observer)
+            solar_altitude.append(np.degrees(sun.alt))
+
+            # if sun is at the wrong altitude, then no meteors are visible
+            if not astronomical_twilight(test_observer):
+                num_meteors_visible.append(0)
+            else:
+                solar_longitude = np.degrees(sun.ra)
+                total_visible_meteors = 0
+                for index, shower in self.shower_csv.iterrows():
+                    meteor_function = shower["Gaussian"]
+                    num_meteors = meteor_function(solar_longitude)
+                    shower["Ephem"].compute(test_observer)
+                    shower_alt = shower["Ephem"].alt  # this is in radians
+                    if shower_alt > 0:
+                        ZHR_local = num_meteors * (np.sin(shower_alt)) / (shower["r"] ** (6.5 - self._limiting_mag))
+                    else:
+                        ZHR_local = 0
+                    total_visible_meteors += ZHR_local
+                sporadics = self._max_sporadic_meteors()
+                # r = 3 for anthelion meteors, and we assume the radiant is the zenith (since sporadics have no true radiant)
+                visible_sporadics = sporadics * (np.sin(90)) / (3 ** (6.5 - self._limiting_mag))
+                total_visible_meteors += visible_sporadics
+                num_meteors_visible.append(total_visible_meteors)
+
+        # plotting
+        fig, ax1 = plt.subplots(figsize=(10,2))
+        ax1.plot(times, num_meteors_visible, color="#ff4b4b", label="Meteors visible per hour")
+        ax1.set_xlabel("Month, day, and hour (in 24hr UTC)")
+        ax1.set_ylabel("Meteors per hour")
+        return fig
+
 
     def _max_sporadic_meteors(self):
         """Returns the number of sporadic meteors per hour. This is currently a very simplified model which uses 
@@ -140,8 +234,8 @@ class Meteors():
 
         return observer
 
-    def run(self):
+    def run(self, return_meteor_info=False):
         """Starts the meteor prediction program."""
 
-        num_meteors_visible = self._ZHR_local()
+        num_meteors_visible = self._ZHR_local(return_meteor_info)
         return num_meteors_visible

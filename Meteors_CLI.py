@@ -6,6 +6,8 @@ class Meteors_CLI():
     """Creates a command-line interface for the meteor prediction program."""
 
     def __init__(self):
+        """Initializes the Meteors object with the inputted observer information."""
+
         self.Meteors = Meteors(self._set_observer())
 
     def _set_observer(self):
@@ -36,7 +38,7 @@ class Meteors_CLI():
 
     def run(self):
         num_meteors_visible = self.Meteors.run()
-        print(num_meteors_visible)
+        print("An average of " + str(int(round(num_meteors_visible))) + " meteor(s) will be visible per hour.")
 
 if __name__ == "__main__":
     CLI = Meteors_CLI()

@@ -9,7 +9,7 @@ def mcd_to_SQM(mcd):
 
     return np.log10(mcd / 108000000) / (-0.4)
 
-def _light_pollution(observer):
+def light_pollution(observer):
     """Returns light pollution data from lightpollutionmap.info."""
 
     longitude = np.degrees(observer.lon)
@@ -20,8 +20,6 @@ def _light_pollution(observer):
 
     # Check if the response was successful
     if response.status_code == 200:
-        # Print the response content
-        print(url)
         artificial_brightness = response.json()
         base_brightness = 0.171168465 # mcd/m2
         total_brightness = base_brightness + artificial_brightness # in mcd/m2
@@ -34,7 +32,7 @@ def _sky_brightness(observer):
 
     moon = ephem.Moon(observer.date)
     sun = ephem.Sun(observer.date)
-    base_sky_brightness_mag = _light_pollution(observer)
+    base_sky_brightness_mag = light_pollution(observer)
     moon_phase = moon.phase
 
     # Calculate the moon's contribution to the sky brightness
@@ -48,11 +46,10 @@ def _sky_brightness(observer):
     # Return the sky brightness magnitude
     #return sky_brightness_mag
 
-def _astronomical_twilight(observer):
+def astronomical_twilight(observer):
     """Checks if the observer has selected a time that is after astronomical twilight."""
 
     sun = ephem.Sun(observer)
-    #print("Sun altitude: " + str(np.degrees(sun.alt)))
     if np.degrees(sun.alt) <= -18:
         return True
     else:
@@ -97,9 +94,11 @@ def sqm_to_bortle_to_limiting_mag(sqm):
         return 7.6
     elif sqm >= 21.6:
         return 7.1
-    elif sqm >= 21.45:
+    elif sqm >= 21.3:
         return 6.6
-    elif sqm >= 20.55:
+    elif sqm >= 20.8:
+        return 6.3
+    elif sqm >= 20.3:
         return 6.1
     elif sqm >= 19.25:
         return 5.6
@@ -114,10 +113,10 @@ def limiting_magnitude(observer):
     """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond and then
     converting to the Bortle scale."""
 
-    # I am simplifying this to just the Sun for now, so that I can test the code
-    if _astronomical_twilight(observer):
+    """# I am simplifying this to just the Sun for now, so that I can test the code
+    if astronomical_twilight(observer):
         # get light pollution brightness
-        light_pollution_mag = _light_pollution(observer)
+        light_pollution_mag = light_pollution(observer)
         # add moon brightness
 
         # convert brightness to limiting magnitude
@@ -125,4 +124,8 @@ def limiting_magnitude(observer):
         return limiting_mag
     # astronomical twilight is not currently occurring, so no meteors are visible
     else:
-        return False
+        return False"""
+    
+    light_pollution_mag = light_pollution(observer)
+    limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
+    return limiting_mag
