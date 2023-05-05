@@ -100,7 +100,7 @@ class Meteors():
         return active_showers, bortle_class
 
     def _ZHR_local(self, return_meteor_info=False):
-        """Calculates local ZHR for all meteor sources combined."""
+        """Calculates local visible rates for all meteor sources combined."""
 
         limiting_mag = limiting_magnitude(self.observer)
         # the ZHR_local equation is only defined for limiting magnitudes 6.5 and brighter.
@@ -140,11 +140,12 @@ class Meteors():
             return total_visible_meteors
     
     def seven_day_prediction(self):
-        """Returns a graph of the 7-day local meteor ZHR values."""
+        """Returns a graph of the 7-day local visible meteor numbers."""
 
         current_datetime = self.observer.date.datetime()
         num_meteors_visible = []
         solar_altitude = []
+        # three days worth of hours, evaluated every fifteen minutes
         hours = np.arange(0, 3*24, 0.25)
         times = []
         for hour_number in hours:
@@ -178,7 +179,7 @@ class Meteors():
                         ZHR_local = 0
                     total_visible_meteors += ZHR_local
                 sporadics = self._max_sporadic_meteors()
-                # r = 3 for anthelion meteors, and we assume the radiant is the zenith (since sporadics have no true radiant)
+                # r = 3 for anthelion (sporadic) meteors, and we assume the radiant is the zenith (since sporadics have no true radiant)
                 visible_sporadics = sporadics * (np.sin(90)) / (3 ** (6.5 - limiting_mag))
                 total_visible_meteors += visible_sporadics
                 num_meteors_visible.append(total_visible_meteors)

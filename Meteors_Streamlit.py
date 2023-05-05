@@ -5,6 +5,7 @@ from streamlit_folium import st_folium
 import folium
 from datetime import datetime, timezone
 from Meteors import Meteors
+from CustomErrors import APIError
 
 def bortle_class_info(bortle_class):
     """Returns info about an observer's light pollution."""
@@ -40,6 +41,7 @@ def bortle_class_info(bortle_class):
                 invisible."
 
 st.set_page_config(layout="wide")
+# title and logo, with spacing to the right
 col1, col2, extra = st.columns([2,2,9])
 meteoreo_icon = Image.open('meteoreo_icon.png')
 with col1:
@@ -72,22 +74,23 @@ with map_col2:
     st.session_state.longitude = DEFAULT_LONGITUDE
     m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=10)
 
-    # The code below will be responsible for displaying 
-    # the popup with the latitude and longitude shown
+    # displays a popup with the latitude and longitude shown
     m.add_child(folium.LatLngPopup())
 
     f_map = st_folium(m, height=320, width=550)
 
+    # allows the user to click the map to set the observing location
     if f_map.get("last_clicked"):
         st.session_state.latitude = f_map["last_clicked"]["lat"]
         st.session_state.longitude = f_map["last_clicked"]["lng"]
-        marker = folium.Marker(location=[st.session_state.latitude, st.session_state.longitude], icon=folium.Icon(color='red', icon='pushpin')).add_to(m)
+
 with map_col1:
     st.markdown("Type in the latitude and longitude or click on the map to select a location. Altitude must be entered manually.")
     st.session_state.latitude = st.number_input("Latitude: ", value=st.session_state.latitude, min_value=-90.0, max_value=90.0, step=0.00001, format="%f")
     st.session_state.longitude = st.number_input("Longitude (negative for West): ", value=st.session_state.longitude, min_value=-180.0, max_value=180.0, step=0.00001, format="%f")
     st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
 
+# sets up the observer with the specified date, time, location
 st.session_state.observer = ephem.Observer()
 date_and_time = datetime(st.session_state.date.year, st.session_state.date.month, st.session_state.date.day,
                          st.session_state.hour, st.session_state.minute)
@@ -97,21 +100,33 @@ st.session_state.observer.lat = str(st.session_state.latitude)
 st.session_state.observer.lon = str(st.session_state.longitude)
 st.session_state.observer.elevation = st.session_state.altitude
 
+# press the submit button
 if st.button('Calculate number of visible meteors'):
     meteor_object = Meteors(st.session_state.observer)
-    num_meteors_visible, active_showers, bortle_class = meteor_object.run(return_meteor_info=True)
-    num_meteors_visible = int(round(num_meteors_visible, 0))
-    st.subheader("You will see an average of " + str(num_meteors_visible) + " meteor(s) per hour.")
-    st.markdown("If the Sun is above an altitude of -18 degrees, the sky will be too bright to see most meteors, \
-                so the predictor will return 0 meteors per hour.")
-    st.subheader("Here's your prediction for the next three days:")
+    try:
+        num_meteors_visible, active_showers, bortle_class = meteor_object.run(return_meteor_info=True)
+    except APIError as response_code:
+        st.markdown("Oops! Our light pollution data grabber is down right now. We may have exceeded the \
+                    maximum number of allowed API requests for the day, or something else might be wrong. \
+                    Error code: " + str(response_code))
+    else:
+        num_meteors_visible = int(round(num_meteors_visible, 0))
+        st.subheader("You will see an average of " + str(num_meteors_visible) + " meteor(s) per hour.")
+        st.markdown("If the Sun is above an altitude of -18 degrees, the sky is too bright to see most meteors, \
+                    so the predictor will return 0 meteors per hour.")
+        st.subheader("Here's your prediction for the next three days:")
 
-    fig = meteor_object.seven_day_prediction()
-    st.pyplot(fig)
+        fig = meteor_object.seven_day_prediction()
+        st.pyplot(fig)
 
-    st.subheader("More info about your meteor prediction: ")
-    st.markdown(active_showers)
-    st.markdown(bortle_class_info(bortle_class))
-    st.markdown("Want to see the most meteors possible? Make sure to be at a location where the entire \
-                sky is visible, and avoid nights when the Moon is up. And don't forget to check the weather! \
-                These predictions are only accurate for a clear sky.")
+        st.subheader("More info about your meteor prediction: ")
+        # tells which showers are currently active
+        st.markdown(active_showers)
+        # specifies the location's Bortle class, with additional viewing info
+        st.markdown(bortle_class_info(bortle_class))
+        st.markdown("Want to see the most meteors possible? Make sure to be at a location where the entire \
+                    sky is visible, and avoid nights when the Moon is up. And don't forget to check the weather! \
+                    These predictions are only accurate for a clear sky.")
+
+st.caption("")
+st.caption("Created by Anavi Uppal (2023).")
