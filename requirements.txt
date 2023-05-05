@@ -1,9 +1,0 @@
-folium==0.14.0
-matplotlib==3.6.2
-numpy==1.23.5
-pandas==1.5.3
-Pillow==9.5.0
-pyephem==9.99
-Requests==2.30.0
-streamlit==1.19.0
-streamlit_folium==0.11.1
