@@ -17,7 +17,7 @@ class Meteors():
         self.shower_csv.index = np.array(self.shower_csv["Code"], dtype=str)
         self._initialize_meteors()
         self._initialize_meteor_periods()
-        # this limiting mag will only be used for the 7-day prediction, so that the API isn't re-queried
+        # this limiting mag will be used for the 7-day prediction, so that the API isn't re-queried
         self._limiting_mag = None
 
     def _solar_lon_to_day(self, solar_lon):
@@ -68,7 +68,6 @@ class Meteors():
 
     def _meteor_number_info(self, limiting_mag, active_shower_codes):
         """Provides info to an observer on light pollution and active meteor showers."""
-
         if limiting_mag >= 7.6:
             bortle_class = 1
         elif limiting_mag >= 7.1:
@@ -98,7 +97,6 @@ class Meteors():
                     active_showers += " and "
                     active_showers += str(self.shower_csv.at[shower_code, "Shower"])
                     active_showers += "."
-
         return active_showers, bortle_class
 
     def _ZHR_local(self, return_meteor_info=False):
@@ -106,9 +104,9 @@ class Meteors():
 
         limiting_mag = limiting_magnitude(self.observer)
         # the ZHR_local equation is only defined for limiting magnitudes 6.5 and brighter.
+        self._limiting_mag = limiting_mag
         if limiting_mag > 6.5:
             limiting_mag = 6.5
-        self._limiting_mag = limiting_mag
         # if not astronomical twilight, the limiting mag should be ignored
         if not astronomical_twilight(self.observer):
             limiting_mag = 0
@@ -136,7 +134,7 @@ class Meteors():
         total_visible_meteors += visible_sporadics
 
         if return_meteor_info == True:
-            active_showers, bortle_class = self._meteor_number_info(limiting_mag, active_shower_codes)
+            active_showers, bortle_class = self._meteor_number_info(self._limiting_mag, active_shower_codes)
             return total_visible_meteors, active_showers, bortle_class
         else:
             return total_visible_meteors
@@ -165,19 +163,23 @@ class Meteors():
             else:
                 solar_longitude = np.degrees(sun.ra)
                 total_visible_meteors = 0
+                limiting_mag = self._limiting_mag
+                # the ZHR equation is not defined for limiting mags > 6.5
+                if limiting_mag > 6.5:
+                    limiting_mag = 6.5
                 for index, shower in self.shower_csv.iterrows():
                     meteor_function = shower["Gaussian"]
                     num_meteors = meteor_function(solar_longitude)
                     shower["Ephem"].compute(test_observer)
                     shower_alt = shower["Ephem"].alt  # this is in radians
                     if shower_alt > 0:
-                        ZHR_local = num_meteors * (np.sin(shower_alt)) / (shower["r"] ** (6.5 - self._limiting_mag))
+                        ZHR_local = num_meteors * (np.sin(shower_alt)) / (shower["r"] ** (6.5 - limiting_mag))
                     else:
                         ZHR_local = 0
                     total_visible_meteors += ZHR_local
                 sporadics = self._max_sporadic_meteors()
                 # r = 3 for anthelion meteors, and we assume the radiant is the zenith (since sporadics have no true radiant)
-                visible_sporadics = sporadics * (np.sin(90)) / (3 ** (6.5 - self._limiting_mag))
+                visible_sporadics = sporadics * (np.sin(90)) / (3 ** (6.5 - limiting_mag))
                 total_visible_meteors += visible_sporadics
                 num_meteors_visible.append(total_visible_meteors)
 
@@ -187,7 +189,6 @@ class Meteors():
         ax1.set_xlabel("Month, day, and hour (in 24hr UTC)")
         ax1.set_ylabel("Meteors per hour")
         return fig
-
 
     def _max_sporadic_meteors(self):
         """Returns the number of sporadic meteors per hour. This is currently a very simplified model which uses 

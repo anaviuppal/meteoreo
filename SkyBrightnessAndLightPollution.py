@@ -26,25 +26,6 @@ def light_pollution(observer):
         return mcd_to_SQM(total_brightness) # in mags per square arcsec
     else:
         raise APIError(response.status_code)
-    
-def _sky_brightness(observer):
-    """Calculates the sky brightness based on light pollution and sunlight and moonlight."""
-
-    moon = ephem.Moon(observer.date)
-    sun = ephem.Sun(observer.date)
-    base_sky_brightness_mag = light_pollution(observer)
-    moon_phase = moon.phase
-
-    # Calculate the moon's contribution to the sky brightness
-
-    # Subtract the moon's contribution to the sky brightness
-
-    # Calculate the sun's contribution to the sky brightness
-
-    # Subtract the sun's contribution to the sky brightness
-
-    # Return the sky brightness magnitude
-    #return sky_brightness_mag
 
 def astronomical_twilight(observer):
     """Checks if the observer has selected a time that is after astronomical twilight."""
@@ -54,7 +35,8 @@ def astronomical_twilight(observer):
         return True
     else:
         return False
-    
+
+#  Function for use in future code updates
 def _moon_sky_brightness(observer):
     """Calculates the additional sky brightness from the moon phase."""
 
@@ -62,9 +44,7 @@ def _moon_sky_brightness(observer):
 
     # Checking the brightness at the observer's location
 
-
-
-#  Functions for use in future code updates
+#  Function for use in future code updates
 def _object_extinction(observer, object):
     """Calculates the extinction of an object's light due to the thickness of the atmosphere."""
 
@@ -112,19 +92,6 @@ def sqm_to_bortle_to_limiting_mag(sqm):
 def limiting_magnitude(observer):
     """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond and then
     converting to the Bortle scale."""
-
-    """# I am simplifying this to just the Sun for now, so that I can test the code
-    if astronomical_twilight(observer):
-        # get light pollution brightness
-        light_pollution_mag = light_pollution(observer)
-        # add moon brightness
-
-        # convert brightness to limiting magnitude
-        limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
-        return limiting_mag
-    # astronomical twilight is not currently occurring, so no meteors are visible
-    else:
-        return False"""
     
     light_pollution_mag = light_pollution(observer)
     limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
