@@ -1,6 +1,7 @@
 import ephem
 from datetime import datetime
 from Meteors import Meteors
+from CustomErrors import APIError
 
 class Meteors_CLI():
     """Creates a command-line interface for the meteor prediction program."""
@@ -37,8 +38,13 @@ class Meteors_CLI():
         return observer
 
     def run(self):
-        num_meteors_visible = self.Meteors.run()
-        print("An average of " + str(int(round(num_meteors_visible))) + " meteor(s) will be visible per hour.")
+        try:
+            num_meteors_visible = self.Meteors.run()
+            print("An average of " + str(int(round(num_meteors_visible))) + " meteor(s) will be visible per hour.")
+        except APIError as response_code:
+            print("Oops! Our light pollution data grabber is down right now. We may have exceeded the \
+                    maximum number of allowed API requests for the day, or something else might be wrong. \
+                    Please try again later. Error code: " + str(response_code))
 
 if __name__ == "__main__":
     CLI = Meteors_CLI()
