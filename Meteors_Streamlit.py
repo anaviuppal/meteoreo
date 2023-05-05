@@ -21,7 +21,7 @@ def bortle_class_info(bortle_class):
                 have a pretty dark sky."
     elif bortle_class == 4:
         return "Your Bortle scale rating is 4, which means that your observing location is a \
-                brighter rural sky site. You can probably see light pollution from nearby cities, but \
+                brighter rural sky site. You can probably see light pollution from cities in the distance, but \
                 your sky is still fairly dark."
     elif bortle_class == 5:
         return "Your Bortle scale rating is 5, which means that your observing location is a \
@@ -47,7 +47,7 @@ with col1:
 with col2:
     st.image(meteoreo_icon, width=80, output_format='png')
 
-st.markdown("How many meteors you can see per hour? Put in your observation time and location, and we'll calculate \
+st.markdown("How many meteors can you see per hour? Put in your observation time and location, and we'll calculate \
            it for you based on sporadic meteors, meteor showers, the altitude of the Sun, and your local light \
            pollution. Don't know your latitude, longitude, or altitude? Search for your observing location \
            at https://www.distancesto.com/coordinates.php.")
@@ -67,26 +67,26 @@ map_col1, map_col2 = st.columns([1,1])
 DEFAULT_LATITUDE = 41.3083
 DEFAULT_LONGITUDE = -72.9279
 DEFAULT_ALTITUDE = 18.0
-with map_col1:
-    st.session_state.latitude = st.number_input("Latitude: ", value=DEFAULT_LATITUDE, min_value=-90.0, max_value=90.0, step=0.00001, format="%f")
-    st.session_state.longitude = st.number_input("Longitude (negative for West): ", value=DEFAULT_LONGITUDE, min_value=-180.0, max_value=180.0, step=0.00001, format="%f")
-    st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
 with map_col2:
+    st.session_state.latitude = DEFAULT_LATITUDE
+    st.session_state.longitude = DEFAULT_LONGITUDE
     m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=10)
-    marker = folium.Marker(location=[st.session_state.latitude, st.session_state.longitude], icon=folium.Icon(color='red', icon='pushpin')).add_to(m)
 
     # The code below will be responsible for displaying 
     # the popup with the latitude and longitude shown
     m.add_child(folium.LatLngPopup())
 
-    f_map = st_folium(m, height=250, width=550)
-
-    selected_latitude = DEFAULT_LATITUDE
-    selected_longitude = DEFAULT_LONGITUDE
+    f_map = st_folium(m, height=320, width=550)
 
     if f_map.get("last_clicked"):
-        selected_latitude = f_map["last_clicked"]["lat"]
-        selected_longitude = f_map["last_clicked"]["lng"]
+        st.session_state.latitude = f_map["last_clicked"]["lat"]
+        st.session_state.longitude = f_map["last_clicked"]["lng"]
+        marker = folium.Marker(location=[st.session_state.latitude, st.session_state.longitude], icon=folium.Icon(color='red', icon='pushpin')).add_to(m)
+with map_col1:
+    st.markdown("Type in the latitude and longitude or click on the map to select a location. Altitude must be entered manually.")
+    st.session_state.latitude = st.number_input("Latitude: ", value=st.session_state.latitude, min_value=-90.0, max_value=90.0, step=0.00001, format="%f")
+    st.session_state.longitude = st.number_input("Longitude (negative for West): ", value=st.session_state.longitude, min_value=-180.0, max_value=180.0, step=0.00001, format="%f")
+    st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
 
 st.session_state.observer = ephem.Observer()
 date_and_time = datetime(st.session_state.date.year, st.session_state.date.month, st.session_state.date.day,
