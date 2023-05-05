@@ -4,7 +4,7 @@ from Meteors import Meteors
 from CustomErrors import APIError
 
 class Meteors_CLI():
-    """Creates a command-line interface for the meteor prediction program."""
+    """Creates a command-line interface for the meteor prediction program (as an alternative to Streamlit)."""
 
     def __init__(self):
         """Initializes the Meteors object with the inputted observer information."""
