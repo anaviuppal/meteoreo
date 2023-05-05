@@ -14,8 +14,12 @@ def light_pollution(observer):
 
     longitude = np.degrees(observer.lon)
     latitude = np.degrees(observer.lat)
-    key = "fO7PlrdDnJuE7vTN" 
-    url = "https://www.lightpollutionmap.info/QueryRaster/?ql=wa_2015&qt=point&qd=" + str(longitude) + "," + str(latitude) + "&key=" + key
+    # the light pollution map doesn't have dadta outside of these latitudes, so I am returning the darkest sky value
+    if latitude <= -60 or latitude >= 75:
+        return 22.0
+
+    KEY = "fO7PlrdDnJuE7vTN" 
+    url = "https://www.lightpollutionmap.info/QueryRaster/?ql=wa_2015&qt=point&qd=" + str(longitude) + "," + str(latitude) + "&key=" + KEY
     response = requests.get(url)
 
     # Check if the response was successful
@@ -90,9 +94,9 @@ def sqm_to_bortle_to_limiting_mag(sqm):
         return 4
     
 def limiting_magnitude(observer):
-    """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond and then
-    converting to the Bortle scale."""
-    
+    """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond, and then
+    converting to the Bortle scale, and then to limiting magnitude."""
+
     light_pollution_mag = light_pollution(observer)
     limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
     return limiting_mag
