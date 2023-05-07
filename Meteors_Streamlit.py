@@ -55,14 +55,16 @@ st.markdown("How many meteors can you see per hour? Put in your observation time
            at https://www.distancesto.com/coordinates.php.")
 
 # the entry boxes for date and time are set to the current UTC date and time, by default
-current_datetime = datetime.now(timezone.utc)
+# if this isn't a session state, it causes errors where it overwrites a user's inputted time sometimes
+if 'current_datetime' not in st.session_state:
+    st.session_state.current_datetime = datetime.now(timezone.utc)
 date_col1, date_col2, date_col3 = st.columns([2,1,1])
 with date_col1:
-    st.session_state.date = st.date_input("Date of observation (UTC): ", value=current_datetime)
+    st.session_state.date = st.date_input("Date of observation (UTC): ", value=st.session_state.current_datetime)
 with date_col2:
-    st.session_state.hour = st.number_input("Hour (UTC, 24-hour format): ", value=current_datetime.hour)
+    st.session_state.hour = st.number_input("Hour (UTC, 24-hour format): ", value=st.session_state.current_datetime.hour, min_value=0, max_value=23)
 with date_col3:
-    st.session_state.minute = st.number_input("Minute: ", value=current_datetime.minute)
+    st.session_state.minute = st.number_input("Minute: ", value=st.session_state.current_datetime.minute, min_value=0, max_value=59)
 
 map_col1, map_col2 = st.columns([1,1])
 # the default location is New Haven, CT, USA
