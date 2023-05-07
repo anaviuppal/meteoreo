@@ -72,7 +72,7 @@ DEFAULT_ALTITUDE = 18.0
 with map_col2:
     st.session_state.latitude = DEFAULT_LATITUDE
     st.session_state.longitude = DEFAULT_LONGITUDE
-    m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=10)
+    m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=10, max_bounds=True, min_zoom=2)
 
     # displays a popup with the latitude and longitude shown
     m.add_child(folium.LatLngPopup())
