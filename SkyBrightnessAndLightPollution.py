@@ -40,13 +40,27 @@ def astronomical_twilight(observer):
     else:
         return False
 
-#  Function for use in future code updates
-def _moon_sky_brightness(observer):
+def moon_sky_brightness(observer):
     """Calculates the additional sky brightness from the moon phase."""
 
-    # Getting moon to sky brightnesses, and subtracting the base sky brightness of 22 mags/sq arcsec
+    # X-values must be in increasing order, otherwise np.interp returns meaningless values
+    # This is [[illumination percentage], [apparent magnitude]]
+    # Data is from Table 1 of M. Minnaert (1961), as shown in:
+    # https://github.com/pchev/skychart/blob/98b7ac40b660beb6acd33d3d183e401e9fe76388/skychart/cu_planet.pas#L1315
+    moon_illumination_mags = np.array([[0.03, 0.07, 0.12, 0.18, 0.25, 0.33, 0.41, 0.5, 0.59, 0.67, 0.75, 0.82, 
+                                        0.88, 0.93, 0.97, 0.99, 1.0],
+                                        [-3.4, -6.7, -7.6, -8.2, -8.7, -9.2, -9.6, -10.0, -10.4, -10.8, -11.0, 
+                                        -11.2, -11.5, -11.8, -12.1, -12.4, -12.7]])
+    
+    moon = ephem.Moon(observer)
+    # ephem returns this as a 0-100 number, so I am converting this to a percentage
+    moon_illumination = moon.phase * 0.01
+    moon_apparent_mag = np.interp(moon_illumination, moon_illumination_mags[0], moon_illumination_mags[1])
 
-    # Checking the brightness at the observer's location
+    # Calculating its contribution to skyglow, as specified at:
+    # https://www.cloudynights.com/topic/623469-sqm-readings-during-full-moon/
+    sky_brightness = moon_apparent_mag + 30.2
+    return sky_brightness, moon.phase, moon.alt
 
 #  Function for use in future code updates
 def _object_extinction(observer, object):
@@ -71,8 +85,8 @@ def _object_extinction(observer, object):
     else:
         return 0
     
-def sqm_to_bortle_to_limiting_mag(sqm):
-    """Converts mags per square arcsecond into Bortle class, and returns the corresponding limiting magnitude."""
+"""def sqm_to_bortle_to_limiting_mag(sqm):
+    Converts mags per square arcsecond into Bortle class, and returns the corresponding limiting magnitude.
 
     if sqm >= 21.75:
         return 7.6
@@ -94,9 +108,9 @@ def sqm_to_bortle_to_limiting_mag(sqm):
         return 4
     
 def limiting_magnitude(observer):
-    """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond, and then
-    converting to the Bortle scale, and then to limiting magnitude."""
+    Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond, and then
+    converting to the Bortle scale, and then to limiting magnitude.
 
     light_pollution_mag = light_pollution(observer)
     limiting_mag = sqm_to_bortle_to_limiting_mag(light_pollution_mag)
-    return limiting_mag
+    return limiting_mag"""

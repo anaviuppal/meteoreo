@@ -49,10 +49,9 @@ with col1:
 with col2:
     st.image(meteoreo_icon, width=80, output_format='png')
 
-st.markdown("How many meteors can you see per hour? Put in your observation time and location, and we'll calculate \
-           it for you based on sporadic meteors, meteor showers, the altitude of the Sun, and your local light \
-           pollution. Don't know your latitude, longitude, or altitude? Search for your observing location \
-           at https://www.distancesto.com/coordinates.php.")
+st.markdown("How many meteors can you see per hour? Put in your observation time and location, and we'll predict \
+           it for you based on random meteors, meteor showers, the altitude of the Sun, the phase of the Moon, and your local light \
+           pollution.")
 
 # the entry boxes for date and time are set to the current UTC date and time, by default
 # if this isn't a session state, it causes errors where it overwrites a user's inputted time sometimes
@@ -60,9 +59,9 @@ if 'current_datetime' not in st.session_state:
     st.session_state.current_datetime = datetime.now(timezone.utc)
 date_col1, date_col2, date_col3 = st.columns([2,1,1])
 with date_col1:
-    st.session_state.date = st.date_input("Date of observation (UTC): ", value=st.session_state.current_datetime)
+    st.session_state.date = st.date_input("Date of observation (:red[UTC]): ", value=st.session_state.current_datetime)
 with date_col2:
-    st.session_state.hour = st.number_input("Hour (UTC, 24-hour format): ", value=st.session_state.current_datetime.hour, min_value=0, max_value=23)
+    st.session_state.hour = st.number_input("Hour (:red[UTC], 24-hour format): ", value=st.session_state.current_datetime.hour, min_value=0, max_value=23)
 with date_col3:
     st.session_state.minute = st.number_input("Minute: ", value=st.session_state.current_datetime.minute, min_value=0, max_value=59)
 
@@ -79,7 +78,7 @@ with map_col2:
     # displays a popup with the latitude and longitude shown
     m.add_child(folium.LatLngPopup())
 
-    f_map = st_folium(m, height=320, width=550)
+    f_map = st_folium(m, height=255, width=550)
 
     # allows the user to click the map to set the observing location
     if f_map.get("last_clicked"):
@@ -87,10 +86,13 @@ with map_col2:
         st.session_state.longitude = f_map["last_clicked"]["lng"]
 
 with map_col1:
-    st.markdown("Type in the latitude and longitude or click on the map to select a location. Altitude must be entered manually.")
+    st.markdown("Type in your latitude and longitude, or click on the map to select a location. Need to look up \
+                your coordinates? Search for your observing location \
+                at https://www.distancesto.com/coordinates.php.")
     st.session_state.latitude = st.number_input("Latitude: ", value=st.session_state.latitude, min_value=-90.0, max_value=90.0, step=0.00001, format="%f")
     st.session_state.longitude = st.number_input("Longitude (negative for West): ", value=st.session_state.longitude, min_value=-180.0, max_value=180.0, step=0.00001, format="%f")
-    st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
+    #st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
+    st.session_state.altitude = 0
 
 # sets up the observer with the specified date, time, location
 st.session_state.observer = ephem.Observer()
@@ -106,7 +108,7 @@ st.session_state.observer.elevation = st.session_state.altitude
 if st.button('Calculate number of visible meteors'):
     meteor_object = Meteors(st.session_state.observer)
     try:
-        num_meteors_visible, active_showers, bortle_class = meteor_object.run(return_meteor_info=True)
+        num_meteors_visible, active_showers, bortle_class, moon_illumination = meteor_object.run(return_meteor_info=True)
     except APIError as response_code:
         st.markdown("Oops! Our light pollution data grabber is down right now. We may have exceeded the \
                     maximum number of allowed API requests for the day, or something else might be wrong. \
@@ -116,7 +118,11 @@ if st.button('Calculate number of visible meteors'):
         st.subheader("You will see an average of " + str(num_meteors_visible) + " meteor(s) per hour.")
         st.markdown("If the Sun is above an altitude of -18 degrees, the sky is too bright to see most meteors, \
                     so the predictor will return 0 meteors per hour.")
+        st.markdown(moon_illumination)
         st.subheader("Here's your prediction for the next three days:")
+        st.markdown("The top plot predicts how many meteors you will be able to see per hour. The bottom plot \
+                    shows the altitude of the Sun and Moon. The color of the Moon dots also tell you the Moon \
+                    phase: lighter colors indicate a fuller Moon. When the Moon is fuller, you can see fewer meteors.")
 
         fig = meteor_object.seven_day_prediction()
         st.pyplot(fig)
@@ -127,8 +133,8 @@ if st.button('Calculate number of visible meteors'):
         # specifies the location's Bortle class, with additional viewing info
         st.markdown(bortle_class_info(bortle_class))
         st.markdown("Want to see the most meteors possible? Make sure to be at a location where the entire \
-                    sky is visible, and avoid nights when the Moon is up. And don't forget to check the weather! \
+                    sky is visible, and avoid nights when the Moon is bright. And don't forget to check the weather! \
                     These predictions are only accurate for a clear sky.")
 
 st.caption("")
-st.caption("Created by Anavi Uppal (2023).")
+st.caption("Created by Anavi Uppal (2023). Contact anavi.uppal@yale.edu to report bugs.")

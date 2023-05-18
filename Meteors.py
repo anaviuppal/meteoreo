@@ -4,7 +4,8 @@ import ephem
 from datetime import datetime, timedelta
 import streamlit as st
 import matplotlib.pyplot as plt
-from SkyBrightnessAndLightPollution import limiting_magnitude, astronomical_twilight
+from SkyBrightnessAndLightPollution import astronomical_twilight, moon_sky_brightness, light_pollution
+import matplotlib.colors
 
 class Meteors():
     """Holds the ephemeral data for all meteor sources. Holds an observer object."""
@@ -17,8 +18,14 @@ class Meteors():
         self.shower_csv.index = np.array(self.shower_csv["Code"], dtype=str)
         self._initialize_meteors()
         self._initialize_meteor_periods()
-        # this limiting mag will be used for the 7-day prediction, so that the API isn't re-queried
-        self._limiting_mag = None
+        # this value will be used for the 7-day prediction, so that the API isn't re-queried
+        self._light_pollution = light_pollution(self.observer)
+
+    # for use in future updates
+    def update_observer_time(self, new_datetime):
+        """Updates the observer's time of observation without having to requery the light pollution API."""
+
+        self.observer.date = ephem.Date(new_datetime)
 
     def _solar_lon_to_day(self, solar_lon):
         """Converts solar longitude to the day number."""
@@ -67,7 +74,9 @@ class Meteors():
         self.shower_csv["Gaussian"] = showers_periods
 
     def _meteor_number_info(self, limiting_mag, active_shower_codes):
-        """Provides info to an observer on light pollution and active meteor showers."""
+        """Provides info to an observer on light pollution, moon phase, and active meteor showers."""
+
+        # bortle class
         if limiting_mag >= 7.6:
             bortle_class = 1
         elif limiting_mag >= 7.1:
@@ -85,6 +94,7 @@ class Meteors():
         elif limiting_mag <= 4:
             bortle_class = "8 or 9"
 
+        # active showers
         if len(active_shower_codes) == 0:
             active_showers = "There are no active meteor showers on your selected date."
         else:
@@ -94,22 +104,74 @@ class Meteors():
                     active_showers += str(self.shower_csv.at[shower_code, "Shower"])
                     active_showers += ", "
                 else:
-                    active_showers += " and "
+                    if index != 0:
+                        active_showers += " and "
                     active_showers += str(self.shower_csv.at[shower_code, "Shower"])
                     active_showers += "."
-        return active_showers, bortle_class
+
+        # Percent illumination of the moon
+        ___, moon_illumination, moon_alt = moon_sky_brightness(self.observer)
+
+        moon_message = "The moon's brightness can greatly decrease the number of meteors visible, and this \
+            has been factored into your prediction. "
+        if moon_alt > 0:
+            moon_message += "The Moon will be up at your selected time, and it will be " + str(round(moon_illumination, 1)) + \
+                " percent illuminated."
+        else:
+            moon_message += "The Moon will be " + str(round(moon_illumination, 1)) + " percent illuminated, \
+                but it won't be up at your selected time."
+
+        return active_showers, bortle_class, moon_message
+    
+    def _sqm_to_bortle_to_limiting_mag(self, sqm):
+        """Converts mags per square arcsecond into Bortle class, and returns the corresponding limiting magnitude."""
+
+        if sqm >= 21.75:
+            return 7.6
+        elif sqm >= 21.6:
+            return 7.1
+        elif sqm >= 21.3:
+            return 6.6
+        elif sqm >= 20.8:
+            return 6.3
+        elif sqm >= 20.3:
+            return 6.1
+        elif sqm >= 19.25:
+            return 5.6
+        elif sqm >= 18.5:
+            return 5.1
+        elif sqm >= 18.00:
+            return 4.6
+        else: # this is both classes 8 and 9
+            return 4
+    
+    def _limiting_magnitude(self, use_moon=True):
+        """Returns limiting magnitude by calculating the sky brightness in mags per square arcsecond, and then
+        converting to the Bortle scale, and then to limiting magnitude. Takes into account both light pollution
+        and the Moon phase brightness."""
+
+        if use_moon:
+            moon_mag, __, moon_alt = moon_sky_brightness(self.observer)
+            if moon_mag < self._light_pollution and moon_alt > 0: # smaller magnitudes are brighter
+                sky_mag = moon_mag
+            else:
+                sky_mag = self._light_pollution
+        else:
+            sky_mag = self._light_pollution
+
+        limiting_mag = self._sqm_to_bortle_to_limiting_mag(sky_mag)
+        return limiting_mag
 
     def _ZHR_local(self, return_meteor_info=False):
         """Calculates local visible rates for all meteor sources combined."""
 
-        limiting_mag = limiting_magnitude(self.observer)
+        limiting_mag = self._limiting_magnitude()
         # the ZHR_local equation is only defined for limiting magnitudes 6.5 and brighter.
-        self._limiting_mag = limiting_mag
         if limiting_mag > 6.5:
             limiting_mag = 6.5
         # if not astronomical twilight, the limiting mag should be ignored
         if not astronomical_twilight(self.observer):
-            limiting_mag = 0
+            limiting_mag = 0 
 
         sun = ephem.Sun()
         sun.compute(self.observer)
@@ -134,8 +196,8 @@ class Meteors():
         total_visible_meteors += visible_sporadics
 
         if return_meteor_info == True:
-            active_showers, bortle_class = self._meteor_number_info(self._limiting_mag, active_shower_codes)
-            return total_visible_meteors, active_showers, bortle_class
+            active_showers, bortle_class, moon_illumination = self._meteor_number_info(self._limiting_magnitude(use_moon=False), active_shower_codes)
+            return total_visible_meteors, active_showers, bortle_class, moon_illumination
         else:
             return total_visible_meteors
     
@@ -145,6 +207,8 @@ class Meteors():
         current_datetime = self.observer.date.datetime()
         num_meteors_visible = []
         solar_altitude = []
+        lunar_phase = []
+        lunar_altitude = []
         # three days worth of hours, evaluated every fifteen minutes
         hours = np.arange(0, 3*24, 0.25)
         times = []
@@ -158,13 +222,17 @@ class Meteors():
             sun.compute(test_observer)
             solar_altitude.append(np.degrees(sun.alt))
 
+            ____, moon_phase, moon_alt = moon_sky_brightness(self.observer)
+            lunar_phase.append(moon_phase)
+            lunar_altitude.append(np.degrees(moon_alt))
+
             # if sun is at the wrong altitude, then no meteors are visible
             if not astronomical_twilight(test_observer):
                 num_meteors_visible.append(0)
             else:
                 solar_longitude = np.degrees(sun.ra)
                 total_visible_meteors = 0
-                limiting_mag = self._limiting_mag
+                limiting_mag = self._limiting_magnitude()
                 # the ZHR equation is not defined for limiting mags > 6.5
                 if limiting_mag > 6.5:
                     limiting_mag = 6.5
@@ -185,10 +253,16 @@ class Meteors():
                 num_meteors_visible.append(total_visible_meteors)
 
         # plotting
-        fig, ax1 = plt.subplots(figsize=(10,2))
+        fig, (ax1, ax2) = plt.subplots(2, figsize=(10,6), gridspec_kw={'height_ratios': [2, 3]})
         ax1.plot(times, num_meteors_visible, color="#ff4b4b", label="Meteors visible per hour")
-        ax1.set_xlabel("Month, day, and hour (in 24hr UTC)")
         ax1.set_ylabel("Meteors per hour")
+        ax2.set_xlabel("Month, day, and hour (in 24hr UTC)")
+        ax2.plot(times, solar_altitude, label="Sun", color="orchid")
+        normalize = matplotlib.colors.Normalize(vmin=0, vmax=100)
+        moon_scatter = ax2.scatter(times, lunar_altitude, label="Moon", c=np.array(lunar_phase), cmap="copper", norm=normalize, s=5)
+        ax2.set_ylabel("Altitude (deg)")
+        plt.legend(loc='upper right')
+        plt.colorbar(moon_scatter, orientation='horizontal', aspect=60, pad=0.35, label="Moon phase (0=new, 100=full)")
         return fig
 
     def _max_sporadic_meteors(self):
