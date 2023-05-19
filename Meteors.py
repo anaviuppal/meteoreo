@@ -254,14 +254,18 @@ class Meteors():
 
         # plotting
         fig, (ax1, ax2) = plt.subplots(2, figsize=(10,6), gridspec_kw={'height_ratios': [2, 3]})
-        ax1.plot(times, num_meteors_visible, color="#ff4b4b", label="Meteors visible per hour")
+        ax1.plot(times, num_meteors_visible, color="#ff4b4b")
+        ax1.axvline(times[0], linestyle="--", color="gray", label="Your selected time")
+        ax1.legend()
         ax1.set_ylabel("Meteors per hour")
+        ax2.axvline(times[0], linestyle="--", color="gray")
+        ax2.axhline(0, linestyle="-", alpha=0.1, color="gray")
         ax2.set_xlabel("Month, day, and hour (in 24hr UTC)")
-        ax2.plot(times, solar_altitude, label="Sun", color="orchid")
+        ax2.plot(times, solar_altitude, label="Sun", color="gold")
         normalize = matplotlib.colors.Normalize(vmin=0, vmax=100)
-        moon_scatter = ax2.scatter(times, lunar_altitude, label="Moon", c=np.array(lunar_phase), cmap="copper", norm=normalize, s=5)
+        moon_scatter = ax2.scatter(times[::5], lunar_altitude[::5], label="Moon", c=lunar_phase[::5], cmap="gray", norm=normalize, s=25, edgecolor="black", linewidth=0.5)
         ax2.set_ylabel("Altitude (deg)")
-        plt.legend(loc='upper right')
+        ax2.legend(loc='upper right')
         plt.colorbar(moon_scatter, orientation='horizontal', aspect=60, pad=0.35, label="Moon phase (0=new, 100=full)")
         return fig
 

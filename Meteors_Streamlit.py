@@ -6,6 +6,7 @@ import folium
 from datetime import datetime, timezone
 from Meteors import Meteors
 from CustomErrors import APIError
+import timezonefinder
 
 def bortle_class_info(bortle_class):
     """Returns info about an observer's light pollution."""
@@ -86,7 +87,7 @@ with map_col2:
         st.session_state.longitude = f_map["last_clicked"]["lng"]
 
 with map_col1:
-    st.markdown("Type in your latitude and longitude, or click on the map to select a location. Need to look up \
+    st.markdown("Click on the map to select a location or type in your latitude and longitude. Need to look up \
                 your coordinates? Search for your observing location \
                 at https://www.distancesto.com/coordinates.php.")
     st.session_state.latitude = st.number_input("Latitude: ", value=st.session_state.latitude, min_value=-90.0, max_value=90.0, step=0.00001, format="%f")
@@ -118,11 +119,10 @@ if st.button('Calculate number of visible meteors'):
         st.subheader("You will see an average of " + str(num_meteors_visible) + " meteor(s) per hour.")
         st.markdown("If the Sun is above an altitude of -18 degrees, the sky is too bright to see most meteors, \
                     so the predictor will return 0 meteors per hour.")
-        st.markdown(moon_illumination)
         st.subheader("Here's your prediction for the next three days:")
         st.markdown("The top plot predicts how many meteors you will be able to see per hour. The bottom plot \
-                    shows the altitude of the Sun and Moon. The color of the Moon dots also tell you the Moon \
-                    phase: lighter colors indicate a fuller Moon. When the Moon is fuller, you can see fewer meteors.")
+                    shows the altitude of the Sun and Moon. The color of the Moon circles also tell you the Moon \
+                    phase: lighter colors indicate a fuller Moon. When the Moon is brighter, you can see fewer meteors.")
 
         fig = meteor_object.seven_day_prediction()
         st.pyplot(fig)
@@ -132,6 +132,7 @@ if st.button('Calculate number of visible meteors'):
         st.markdown(active_showers)
         # specifies the location's Bortle class, with additional viewing info
         st.markdown(bortle_class_info(bortle_class))
+        st.markdown(moon_illumination)
         st.markdown("Want to see the most meteors possible? Make sure to be at a location where the entire \
                     sky is visible, and avoid nights when the Moon is bright. And don't forget to check the weather! \
                     These predictions are only accurate for a clear sky.")
