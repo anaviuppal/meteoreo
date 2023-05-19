@@ -4,6 +4,7 @@ numpy==1.23.5
 pandas==1.5.3
 Pillow==9.5.0
 pyephem==9.99
+pytz==2022.7.1
 Requests==2.30.0
 streamlit==1.19.0
 streamlit_folium==0.11.1
