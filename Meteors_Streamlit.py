@@ -92,8 +92,9 @@ if 'current_datetime' not in st.session_state:
 
 # get local time zone
 st.session_state.observer = ephem.Observer()
-tf = TimezoneFinder()
-timezone_str = tf.timezone_at(lng=float(st.session_state.longitude), lat=float(st.session_state.latitude))
+if "tf" not in st.session_state:
+    st.session_state.tf = TimezoneFinder()
+timezone_str = st.session_state.tf.timezone_at(lng=float(st.session_state.longitude), lat=float(st.session_state.latitude))
 if timezone_str is None:
     timezone_str = "Etc/GMT" # if the timezone can't be determined, use UTC time
 pytz_timezone = pytz.timezone(timezone_str)
