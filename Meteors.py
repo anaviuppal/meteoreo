@@ -10,10 +10,11 @@ import matplotlib.colors
 class Meteors():
     """Holds the ephemeral data for all meteor sources. Holds an observer object."""
 
-    def __init__(self, observer):
+    def __init__(self, observer, UTC_offset):
         """Initializes the observer and sets up the meteor shower data."""
 
         self.observer = observer
+        self.UTC_offset = UTC_offset
         self.shower_csv = pd.read_csv('ShowerData.csv')
         self.shower_csv.index = np.array(self.shower_csv["Code"], dtype=str)
         self._initialize_meteors()
@@ -112,7 +113,7 @@ class Meteors():
         # Percent illumination of the moon
         ___, moon_illumination, moon_alt = moon_sky_brightness(self.observer)
 
-        moon_message = "The moon's brightness can greatly decrease the number of meteors visible, and this \
+        moon_message = "The Moon's brightness can greatly decrease the number of visible meteors, and this \
             has been factored into your prediction. "
         if moon_alt > 0:
             moon_message += "The Moon will be up at your selected time, and it will be " + str(round(moon_illumination, 1)) + \
@@ -252,18 +253,20 @@ class Meteors():
                 total_visible_meteors += visible_sporadics
                 num_meteors_visible.append(total_visible_meteors)
 
+        local_times = np.array(times) + self.UTC_offset
+
         # plotting
         fig, (ax1, ax2) = plt.subplots(2, figsize=(10,6), gridspec_kw={'height_ratios': [2, 3]})
-        ax1.plot(times, num_meteors_visible, color="#ff4b4b")
-        ax1.axvline(times[0], linestyle="--", color="gray", label="Your selected time")
+        ax1.plot(local_times, num_meteors_visible, color="#ff4b4b")
+        ax1.axvline(local_times[0], linestyle="--", color="gray", label="Your selected time")
         ax1.legend()
         ax1.set_ylabel("Meteors per hour")
-        ax2.axvline(times[0], linestyle="--", color="gray")
+        ax2.axvline(local_times[0], linestyle="--", color="gray")
         ax2.axhline(0, linestyle="-", alpha=0.1, color="gray")
-        ax2.set_xlabel("Month, day, and hour (in 24hr UTC)")
-        ax2.plot(times, solar_altitude, label="Sun", color="gold")
+        ax2.set_xlabel("Month, day, and hour (in 24hr local time)")
+        ax2.plot(local_times, solar_altitude, label="Sun", color="gold")
         normalize = matplotlib.colors.Normalize(vmin=0, vmax=100)
-        moon_scatter = ax2.scatter(times[::5], lunar_altitude[::5], label="Moon", c=lunar_phase[::5], cmap="gray", norm=normalize, s=25, edgecolor="black", linewidth=0.5)
+        moon_scatter = ax2.scatter(local_times[::5], lunar_altitude[::5], label="Moon", c=lunar_phase[::5], cmap="Greys_r", norm=normalize, s=25, edgecolor="black", linewidth=0.5)
         ax2.set_ylabel("Altitude (deg)")
         ax2.legend(loc='upper right')
         plt.colorbar(moon_scatter, orientation='horizontal', aspect=60, pad=0.35, label="Moon phase (0=new, 100=full)")

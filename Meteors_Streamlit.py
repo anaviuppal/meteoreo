@@ -6,7 +6,9 @@ import folium
 from datetime import datetime, timezone
 from Meteors import Meteors
 from CustomErrors import APIError
-import timezonefinder
+from timezonefinder import TimezoneFinder
+import pytz
+# use pipreqs to make requirements.txt file
 
 def bortle_class_info(bortle_class):
     """Returns info about an observer's light pollution."""
@@ -54,18 +56,6 @@ st.markdown("How many meteors can you see per hour? Put in your observation time
            it for you based on random meteors, meteor showers, the altitude of the Sun, the phase of the Moon, and your local light \
            pollution.")
 
-# the entry boxes for date and time are set to the current UTC date and time, by default
-# if this isn't a session state, it causes errors where it overwrites a user's inputted time sometimes
-if 'current_datetime' not in st.session_state:
-    st.session_state.current_datetime = datetime.now(timezone.utc)
-date_col1, date_col2, date_col3 = st.columns([2,1,1])
-with date_col1:
-    st.session_state.date = st.date_input("Date of observation (:red[UTC]): ", value=st.session_state.current_datetime)
-with date_col2:
-    st.session_state.hour = st.number_input("Hour (:red[UTC], 24-hour format): ", value=st.session_state.current_datetime.hour, min_value=0, max_value=23)
-with date_col3:
-    st.session_state.minute = st.number_input("Minute: ", value=st.session_state.current_datetime.minute, min_value=0, max_value=59)
-
 map_col1, map_col2 = st.columns([1,1])
 # the default location is New Haven, CT, USA
 DEFAULT_LATITUDE = 41.3083
@@ -95,11 +85,35 @@ with map_col1:
     #st.session_state.altitude = st.number_input("Altitude (in meters): ", value=DEFAULT_ALTITUDE, min_value=0.0, max_value=8850.0, step=0.00001, format="%f")
     st.session_state.altitude = 0
 
-# sets up the observer with the specified date, time, location
+# the entry boxes for date and time are set to the current UTC date and time, by default
+# if I don't make this a session state, it causes errors where it overwrites a user's inputted time sometimes
+if 'current_datetime' not in st.session_state:
+    st.session_state.current_datetime = datetime.now(timezone.utc)
+
+# get local time zone
 st.session_state.observer = ephem.Observer()
+tf = TimezoneFinder()
+timezone_str = tf.timezone_at(lng=float(st.session_state.longitude), lat=float(st.session_state.latitude))
+if timezone_str is None:
+    timezone_str = "Etc/GMT" # if the timezone can't be determined, use UTC time
+pytz_timezone = pytz.timezone(timezone_str)
+
+st.markdown("Enter the local date and time. The local timezone of your selected location is: :red[" + timezone_str + "]")
+
+date_col1, date_col2, date_col3 = st.columns([2,1,1])
+with date_col1:
+    st.session_state.date = st.date_input("Date of observation: ", value=st.session_state.current_datetime)
+with date_col2:
+    st.session_state.hour = st.number_input("Hour (24-hour format): ", value=st.session_state.current_datetime.hour, min_value=0, max_value=23)
+with date_col3:
+    st.session_state.minute = st.number_input("Minute: ", value=st.session_state.current_datetime.minute, min_value=0, max_value=59)
+
+# sets up the observer with the specified date, time, location
 date_and_time = datetime(st.session_state.date.year, st.session_state.date.month, st.session_state.date.day,
                          st.session_state.hour, st.session_state.minute)
-st.session_state.observer.date = ephem.Date(date_and_time)
+UTC_offset = pytz_timezone.utcoffset(date_and_time)
+UTC_date_and_time = date_and_time - UTC_offset
+st.session_state.observer.date = ephem.Date(UTC_date_and_time)
 # ephem requires latitude and longitude to be inputted as strings
 st.session_state.observer.lat = str(st.session_state.latitude)
 st.session_state.observer.lon = str(st.session_state.longitude)
@@ -107,7 +121,7 @@ st.session_state.observer.elevation = st.session_state.altitude
 
 # press the submit button
 if st.button('Calculate number of visible meteors'):
-    meteor_object = Meteors(st.session_state.observer)
+    meteor_object = Meteors(st.session_state.observer, UTC_offset)
     try:
         num_meteors_visible, active_showers, bortle_class, moon_illumination = meteor_object.run(return_meteor_info=True)
     except APIError as response_code:
@@ -122,7 +136,7 @@ if st.button('Calculate number of visible meteors'):
         st.subheader("Here's your prediction for the next three days:")
         st.markdown("The top plot predicts how many meteors you will be able to see per hour. The bottom plot \
                     shows the altitude of the Sun and Moon. The color of the Moon circles also tell you the Moon \
-                    phase: lighter colors indicate a fuller Moon. When the Moon is brighter, you can see fewer meteors.")
+                    phase: lighter colors indicate a brighter (fuller) Moon. When the Moon is brighter, you can see fewer meteors.")
 
         fig = meteor_object.seven_day_prediction()
         st.pyplot(fig)
