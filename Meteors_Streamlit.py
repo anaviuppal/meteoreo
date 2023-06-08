@@ -57,14 +57,14 @@ st.markdown("How many meteors can you see per hour? Put in your observation time
            pollution.")
 
 map_col1, map_col2 = st.columns([1,1])
-# the default location is New Haven, CT, USA
-DEFAULT_LATITUDE = 41.3083
-DEFAULT_LONGITUDE = -72.9279
+# the default location is in Washington D.C. -- I chose it so that the map opens at a central-ish location and in the ET time zone
+DEFAULT_LATITUDE = 38.91
+DEFAULT_LONGITUDE = -77.04
 DEFAULT_ALTITUDE = 18.0
 with map_col2:
     st.session_state.latitude = DEFAULT_LATITUDE
     st.session_state.longitude = DEFAULT_LONGITUDE
-    m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=10, max_bounds=True, min_zoom=2)
+    m = folium.Map(location=[st.session_state.latitude, st.session_state.longitude], zoom_start=2, max_bounds=True, min_zoom=2)
 
     # displays a popup with the latitude and longitude shown
     m.add_child(folium.LatLngPopup())
@@ -153,4 +153,4 @@ if st.button('Calculate number of visible meteors'):
                     These predictions are only accurate for a clear sky.")
 
 st.caption("")
-st.caption("Created by Anavi Uppal (2023). Contact anavi.uppal@yale.edu to report bugs.")
+st.caption("Created by [Anavi Uppal](https://anaviuppal.wordpress.com/) (2023). Contact anavi.uppal@yale.edu to report bugs.")
