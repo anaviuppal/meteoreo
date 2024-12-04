@@ -153,4 +153,4 @@ if st.button('Calculate number of visible meteors'):
                     These predictions are only accurate for a clear sky.")
 
 st.caption("")
-st.caption("Created by [Anavi Uppal](https://anaviuppal.wordpress.com/) (2023). Contact anavi.uppal@yale.edu to report bugs.")
+st.caption("Created by [Anavi Uppal](https://anaviuppal.wordpress.com/) (2023). Contact anuppal@ucsc.edu to report bugs.")
